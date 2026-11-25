@@ -48,16 +48,22 @@ def output_path() -> Path:
 def store(word: str, path: Path) -> None:
     """Write the word with no trailing newline, then read it back."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(word, encoding="utf-8")
+    tmp_path = path.with_suffix(".tmp")
+    tmp_path.write_text(word, encoding="utf-8")
+    os.replace(tmp_path, path)
     if path.read_text(encoding="utf-8") != word:
         _fail("written entry does not match WORD")
 
 
 def main() -> int:
     """Validate, write, verify, and print the word. Returns exit code."""
-    validate(WORD)
-    path = output_path()
-    store(WORD, path)
+    try:
+        validate(WORD)
+        path = output_path()
+        store(WORD, path)
+    except EntryProblem as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     print(WORD)
     return 0
 

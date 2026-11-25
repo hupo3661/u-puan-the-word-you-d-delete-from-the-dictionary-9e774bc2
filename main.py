@@ -6,31 +6,61 @@ The entry is the single word to erase from the dictionary forever:
 "regardless" - deleting it fixes the dictionary and the argument in one
 stroke, and the joke is in the word itself.
 
-The word is written to /output/entry.txt (override with OUTPUT_PATH) and
-printed to stdout. Deterministic: no randomness, no network, no clock.
+The word is written to the path in ``OUTPUT_PATH`` (default
+``/output/entry.txt``) and printed to stdout. Deterministic: no
+randomness, no network, no clock.
 """
 
 import os
+import sys
+from pathlib import Path
 
 WORD = "Irregardless"
 MAX_CHARS = 77
 
 
-def main() -> None:
-    if not WORD or WORD != WORD.strip() or len(WORD.split()) != 1:
-        raise SystemExit("Invalid entry: must be exactly one word.")
-    if not WORD.isalpha():
-        raise SystemExit("Invalid entry: must be letters only.")
-    if len(WORD) > MAX_CHARS:
-        raise SystemExit(
-            f"Invalid entry: {len(WORD)} chars, over the {MAX_CHARS} limit."
+class EntryProblem(ValueError):
+    """One exception for every way the entry word can fail a gate."""
+
+
+def _fail(message: str) -> None:
+    raise EntryProblem(message)
+
+
+def validate(word: str) -> None:
+    """Run the gates in order; the first failure raises naming itself."""
+    if not word or word != word.strip() or len(word.split()) != 1:
+        _fail("Invalid entry: must be exactly one word.")
+    if not word.isalpha():
+        _fail("Invalid entry: must be letters only.")
+    if len(word) > MAX_CHARS:
+        _fail(
+            f"Invalid entry: {len(word)} chars, "
+            f"over the {MAX_CHARS} limit."
         )
-    output_path = os.environ.get("OUTPUT_PATH", "/output/entry.txt")
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(WORD)
+
+
+def output_path() -> Path:
+    """The OUTPUT_PATH override, or the harness default entry.txt."""
+    return Path(os.environ.get("OUTPUT_PATH", "/output/entry.txt"))
+
+
+def store(word: str, path: Path) -> None:
+    """Write the word with no trailing newline, then read it back."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(word, encoding="utf-8")
+    if path.read_text(encoding="utf-8") != word:
+        _fail("written entry does not match WORD")
+
+
+def main() -> int:
+    """Validate, write, verify, and print the word. Returns exit code."""
+    validate(WORD)
+    path = output_path()
+    store(WORD, path)
     print(WORD)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
